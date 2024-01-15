@@ -1,45 +1,29 @@
 const express = require("express");
+const { performance } = require("perf_hooks");
 
 const app = express();
 const port = 3000;
 
-function log(req, res, event) {
-    const time = ((Date.now() - req.time) / 1000).toFixed(3);
-    const statusCode = event === "close" ? 499 : res.statusCode;
+function logClose(req, res, startTime) {
+    const time = ((performance.now() - startTime) / 1000).toFixed(3);
+    const statusCode = res.writableEnded ? res.statusCode : 499;
 
     console.log(
-        "Response [] %s %d %s %ss (%s, %s)",
+        "Response [] %s %d %s %ss (%s)",
         req.method,
         statusCode,
         req.originalUrl,
         time,
-        event,
         res.headersSent ? "sent" : "not sent"
     );
 }
 
-function logFinish() {
-    console.log("... req finish");
-    // this.off("finish", logFinish);
-    // this.off("close", logClose);
-    log(this.req, this, "finish");
-}
-
-function logClose() {
-    console.log("... req close");
-    // this.off("finish", logFinish);
-    // this.off("close", logClose);
-    log(this.req, this, "close");
-}
-
 app.use((req, res, next) => {
-    req.time = Date.now();
-    res.req = req;
+    const startTime = performance.now();
     console.log("---------------------------");
     console.log("-> got request", new Date());
 
-    res.on("finish", logFinish);
-    res.on("close", logClose);
+    res.on("close", () => logClose(req, res, startTime));
 
     next();
 });
